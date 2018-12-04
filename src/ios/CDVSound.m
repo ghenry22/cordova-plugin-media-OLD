@@ -646,6 +646,9 @@ BOOL keepAvAudioSessionAlwaysActive = NO;
        CMTime time = [avPlayer currentTime];
        position = CMTimeGetSeconds(time);
     }
+    if(isnan(position)){
+     position = -1;
+    }
 
     CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDouble:position];
 
