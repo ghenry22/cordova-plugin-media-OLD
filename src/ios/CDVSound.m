@@ -28,6 +28,7 @@
 @implementation CDVSound
 
 BOOL keepAvAudioSessionAlwaysActive = NO;
+NSInteger numberOfLoops = 0;
 
 @synthesize soundCache, avSession, currMediaId, statusCallbackId;
 
@@ -213,6 +214,7 @@ BOOL keepAvAudioSessionAlwaysActive = NO;
 
 - (void)create:(CDVInvokedUrlCommand*)command
 {
+    numberOfLoops = 0;
     NSString* mediaId = [command argumentAtIndex:0];
     NSString* resourcePath = [command argumentAtIndex:1];
 
@@ -316,13 +318,18 @@ BOOL keepAvAudioSessionAlwaysActive = NO;
     NSString* mediaId = [command argumentAtIndex:0];
     NSString* resourcePath = [command argumentAtIndex:1];
     NSDictionary* options = [command argumentAtIndex:2 withDefault:nil];
+    NSNumber* loopOption = [options objectForKey:@"numberOfLoops"];
+    
+    if (loopOption != nil && numberOfLoops == 0) {
+        numberOfLoops = [loopOption intValue];
+    }
+    NSLog(@"LOOPS: %ld", (long)numberOfLoops);
 
     BOOL bError = NO;
 
     CDVAudioFile* audioFile = [self audioFileForResource:resourcePath withId:mediaId doValidation:YES forRecording:NO];
         
     if ((audioFile != nil) && (audioFile.resourceURL != nil)) {
-        
 
         //self.currMediaId = audioFile.player.mediaId;
         self.currMediaId = mediaId;
@@ -330,6 +337,7 @@ BOOL keepAvAudioSessionAlwaysActive = NO;
         // get the audioSession and set the category to allow Playing when device is locked or ring/silent switch engaged
         if ([self hasAudioSession]) {
             NSError* __autoreleasing err = nil;
+            // handle play when locked option
             NSNumber* playAudioWhenScreenIsLocked = [options objectForKey:@"playAudioWhenScreenIsLocked"];
             BOOL bPlayAudioWhenScreenIsLocked = YES;
             if (playAudioWhenScreenIsLocked != nil) {
@@ -668,11 +676,17 @@ BOOL keepAvAudioSessionAlwaysActive = NO;
 -(void)itemDidFinishPlaying:(NSNotification *) notification {
     NSLog(@"avplayer Finished playback");
     NSString* mediaId = self.currMediaId;
-
-     if (! keepAvAudioSessionAlwaysActive && self.avSession && ! [self isPlayingOrRecording]) {
-         [self.avSession setActive:NO error:nil];
-     }
-    [self onStatus:MEDIA_STATE mediaId:mediaId param:@(MEDIA_STOPPED)];
+    
+    if(numberOfLoops != 0) {
+        numberOfLoops = numberOfLoops -1;
+        [avPlayer seekToTime:kCMTimeZero];
+        [avPlayer play];
+    } else {
+        if (! keepAvAudioSessionAlwaysActive && self.avSession && ! [self isPlayingOrRecording]) {
+            [self.avSession setActive:NO error:nil];
+        }
+       [self onStatus:MEDIA_STATE mediaId:mediaId param:@(MEDIA_STOPPED)];
+    }
 }
 
 -(void)itemStalledPlaying:(NSNotification *) notification {
